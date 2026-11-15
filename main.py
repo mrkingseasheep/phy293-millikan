@@ -66,7 +66,11 @@ def line(x, m, b):
 def find_lin_fit(points):
     time_s = points[0]
     position_m = points[1]
+    # calculate pos error with 1 pixel as absolute error
     position_err_m = np.ones(len(time_s)) * (1 / PX_TO_M)
+    # calculate pos error as percentage uncertainty converted to abs error
+    for i, position in enumerate(position_m):
+        position_err_m[i] = position * 1 / 540
     popt, pcov = curve_fit(
         line, time_s, position_m, sigma=position_err_m, absolute_sigma=True
     )
@@ -106,6 +110,8 @@ def find_charge(filename, voltage_rise, voltage_rise_err):
     rise_points, fall_points = read_file(filename)
     rise_v, rise_v_err, rise_redchi2, rise_p = find_lin_fit(rise_points)
     fall_v, fall_v_err, fall_redchi2, fall_p = find_lin_fit(fall_points)
+    print(f"{rise_redchi2}")
+    # print(f"{filename} rise velocity has reduced chi2 of {rise_redchi2}")
 
     r, r_err = find_cunningham_adjusted_radius(fall_v, fall_v_err)
 
