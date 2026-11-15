@@ -95,13 +95,36 @@ def find_lin_fit(points):
     m_err, b_err = np.sqrt(np.diag(pcov))
     chi_squared = 0
 
+    residuals = position_m - line(time_s, *popt)
+    ss_res = np.sum(residuals**2)
+    ss_tot = np.sum((position_m - np.mean(position_m)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    rmse = np.sqrt(np.mean(residuals**2))
+    print("r^2")
+    print(r_squared)
+    print("rmse")
+    print(rmse)
+    print("m")
+    print(m)
+    print("actual err")
+    print(1 / PX_TO_M)
+
     for i in range(len(time_s)):
         chi_squared += ((position_m[i] - (m * time_s[i] + b)) / position_err_m[i]) ** 2
 
     red_chi_squared = chi_squared / (len(time_s) - 2)
     p_value = stats.chi2.sf(chi_squared, len(time_s) - 2)
 
-    plot_residuals(time_s, position_m, m, b)
+    # plot_residuals(time_s, position_m, m, b)
+
+    # brownian motion adjustment
+    delta_t = abs(time_s[0] - time_s[-1])
+    k_b = 1.380649e-23
+    T = 20 + 273.15
+    r = 6.60141439066232e-07  # back calculated: average of all drop particle radius from no brownian motion
+    brownian_correction_dist = math.sqrt(2 * k_b * T / 6 / np.pi / eta / r * delta_t)
+    # CHANGE ME TO ADD BROWNIAN CORRECTION
+    m = (m * delta_t + brownian_correction_dist) / delta_t
 
     return abs(m), abs(m_err), red_chi_squared, p_value
 
@@ -111,6 +134,7 @@ def find_cunningham_adjusted_radius(v_d, v_d_err):
         -A * lambda_path
         + math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
     ) / 2
+    # print(r)
 
     r_err = abs(
         (-9 * eta * v_d_err)
@@ -121,7 +145,7 @@ def find_cunningham_adjusted_radius(v_d, v_d_err):
             * math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
         )
     )
-    print(r_err)
+    # print(r_err)
     return r, r_err
 
 
@@ -129,7 +153,7 @@ def find_charge(filename, voltage_rise, voltage_rise_err):
     rise_points, fall_points = read_file(filename)
     rise_v, rise_v_err, rise_redchi2, rise_p = find_lin_fit(rise_points)
     fall_v, fall_v_err, fall_redchi2, fall_p = find_lin_fit(fall_points)
-    print(f"{rise_redchi2}")
+    # print(f"{rise_redchi2}")
     # print(f"{filename} rise velocity has reduced chi2 of {rise_redchi2}")
 
     r, r_err = find_cunningham_adjusted_radius(fall_v, fall_v_err)
