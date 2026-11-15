@@ -12,6 +12,7 @@ lambda_path = 67.5e-9
 eta = 1.827e-5
 g = 9.81
 rho = 875.3
+d = 6e-3
 
 
 def read_file(filename):
@@ -66,7 +67,7 @@ def find_lin_fit(points):
     red_chi_squared = chi_squared / (len(time_s) - 2)
     p_value = stats.chi2.sf(chi_squared, len(time_s) - 2)
 
-    return m, m_err, red_chi_squared, p_value
+    return abs(m), abs(m_err), red_chi_squared, p_value
 
 
 def find_cunningham_adjusted_radius(v_d, v_d_err):
@@ -88,17 +89,39 @@ def find_cunningham_adjusted_radius(v_d, v_d_err):
     return r, r_err
 
 
-def find_charge(filename):
+def find_charge(filename, voltage_rise, voltage_rise_err):
     rise_points, fall_points = read_file(filename)
     rise_v, rise_v_err, rise_redchi2, rise_p = find_lin_fit(rise_points)
     fall_v, fall_v_err, fall_redchi2, fall_p = find_lin_fit(fall_points)
 
     r, r_err = find_cunningham_adjusted_radius(fall_v, fall_v_err)
-    print((r, r_err))
+
+    C = 4 / 3 * np.pi * rho * g * d
+    q = C * r**3 * (fall_v + rise_v) / voltage_rise / fall_v
+
+    partial_q_r = C * 3 * r**2 * (fall_v + rise_v) / voltage_rise / fall_v
+    partial_q_V_rise = -C * r**3 * (fall_v + rise_v) / voltage_rise**2 / fall_v
+    partial_q_v_u = C * r**3 / voltage_rise / fall_v
+    partial_q_v_d = -C * rise_v * r**3 / voltage_rise / fall_v**2
+    # print(f"q / r       {partial_q_r}")
+    # print(f"q / V       {partial_q_V_rise}")
+    # print(f"q / v_u     {partial_q_v_u}")
+    # print(f"q / v_d     {partial_q_v_d}")
+
+    q_err = math.sqrt(
+        (partial_q_r * r_err) ** 2
+        + (partial_q_v_d * fall_v_err) ** 2
+        + (partial_q_v_u * rise_v_err) ** 2
+        + (partial_q_V_rise * voltage_rise_err) ** 2
+    )
+
+    # print(q)
+    # print(q_err)
+    return q, q_err
 
 
 def main():
-    find_charge("data/0.txt")
+    find_charge("data/0.txt", 460, 5)
 
 
 if __name__ == "__main__":
