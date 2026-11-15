@@ -5,14 +5,27 @@ import numpy as np
 from scipy import stats
 from scipy.optimize import curve_fit
 
+OUTPUT_FILE_PATH = "results.txt"
 FPS = 10
 PX_TO_M = 540 * 1000  # 540 px / mm * 1000 mm / m
+VOLTAGE_ERR = 5
+
 A = 5 / 4
 lambda_path = 67.5e-9
 eta = 1.827e-5
 g = 9.81
 rho = 875.3
 d = 6e-3
+
+
+def read_voltage():
+    rise_voltage, fall_voltage = [], []
+    with open("data/voltage.txt", "r") as file:
+        for i, line in enumerate(file):
+            voltages = line.strip().split("\t")
+            fall_voltage.append(int(float(voltages[0])))
+            rise_voltage.append(int(float(voltages[1])))
+    return np.array(fall_voltage), np.array(rise_voltage)
 
 
 def read_file(filename):
@@ -121,7 +134,13 @@ def find_charge(filename, voltage_rise, voltage_rise_err):
 
 
 def main():
-    find_charge("data/0.txt", 460, 5)
+    fall_voltage, rise_voltage = read_voltage()
+    with open(OUTPUT_FILE_PATH, "w") as file:
+        file.write(f"q q_err\n")
+        for i in range(0, 82):
+            filepath = f"data/{i}.txt"
+            q, q_err = find_charge(filepath, rise_voltage[i], VOLTAGE_ERR)
+            file.write(f"{q} {q_err}\n")
 
 
 if __name__ == "__main__":
