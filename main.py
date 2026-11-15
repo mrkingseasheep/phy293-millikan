@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
+from scipy.optimize import curve_fit
 
 FPS = 10
 PX_TO_M = 540 * 1000  # 540 px / mm * 1000 mm / m
@@ -39,17 +40,55 @@ def read_file(filename):
     )
 
 
+def line(x, m, b):
+    return m * x + b
+
+
 def find_lin_fit(points):
     time_s = points[0]
     position_m = points[1]
-    print(position_m)
-    print(time_s)
+    position_err_m = np.ones(len(time_s)) * (1 / PX_TO_M)
+    popt, pcov = curve_fit(
+        line, time_s, position_m, sigma=position_err_m, absolute_sigma=True
+    )
+    m, b = popt
+    m_err, b_err = np.sqrt(np.diag(pcov))
+    chi_squared = 0
+
+    for i in range(len(time_s)):
+        chi_squared += ((position_m[i] - (m * time_s[i] + b)) / position_err_m[i]) ** 2
+
+    red_chi_squared = chi_squared / (len(time_s) - 2)
+    p_value = stats.chi2.sf(chi_squared, len(time_s) - 2)
+
+    return m, m_err, red_chi_squared, p_value
+
+
+def find_cunningham_adjusted_radius(v_d):
+    A = 5 / 4
+    lambda_path = 67.5e-9
+    eta = 1.827e-5
+    g = 9.81
+    rho = 875.3
+
+    r = (
+        -A * lambda_path
+        + math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
+    ) / 2
+
+    return r
+
+
+def solve_line(filename):
+    rise_points, fall_points = read_file(filename)
+    rise_v, rise_v_err, rise_redchi2, rise_p = find_lin_fit(rise_points)
+    fall_v, fall_v_err, fall_redchi2, fall_p = find_lin_fit(fall_points)
+
+    print(find_cunningham_adjusted_radius(fall_v))
 
 
 def main():
-    rise_points, fall_points = read_file("data/0.txt")
-    # print(rise_pos_s_m)
-    find_lin_fit(rise_points)
+    solve_line("data/0.txt")
 
 
 if __name__ == "__main__":
