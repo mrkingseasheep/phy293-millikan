@@ -10,6 +10,9 @@ FPS = 10
 PX_TO_M = 540 * 1000  # 540 px / mm * 1000 mm / m
 VOLTAGE_ERR = 5
 
+START_IDX = 0
+END_IDX = 1
+
 A = 5 / 4
 lambda_path = 67.5e-9
 eta = 1.827e-5
@@ -63,14 +66,28 @@ def line(x, m, b):
     return m * x + b
 
 
+def plot_residuals(time_s, position_m, m, b):
+    residual = position_m - (m * time_s + b)
+    # for i in range(len(time_s)):
+    #     residual.append(position_m - (m * time_s + b))
+    # residual = np.array(residual)
+    # time_s = np.array(time_s)
+    fig, ax = plt.subplots()
+    ax.bar(time_s, residual, width=0.1)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Residual (m)")
+    # plt.savefig("residual_fall_0.png", dpi=300, bbox_inches="tight")
+    plt.show()
+
+
 def find_lin_fit(points):
     time_s = points[0]
     position_m = points[1]
     # calculate pos error with 1 pixel as absolute error
     position_err_m = np.ones(len(time_s)) * (1 / PX_TO_M)
     # calculate pos error as percentage uncertainty converted to abs error
-    for i, position in enumerate(position_m):
-        position_err_m[i] = position * 1 / 540
+    # for i, position in enumerate(position_m):
+    #     position_err_m[i] = position * 1 / 540
     popt, pcov = curve_fit(
         line, time_s, position_m, sigma=position_err_m, absolute_sigma=True
     )
@@ -83,6 +100,8 @@ def find_lin_fit(points):
 
     red_chi_squared = chi_squared / (len(time_s) - 2)
     p_value = stats.chi2.sf(chi_squared, len(time_s) - 2)
+
+    plot_residuals(time_s, position_m, m, b)
 
     return abs(m), abs(m_err), red_chi_squared, p_value
 
@@ -102,7 +121,7 @@ def find_cunningham_adjusted_radius(v_d, v_d_err):
             * math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
         )
     )
-
+    print(r_err)
     return r, r_err
 
 
@@ -143,7 +162,7 @@ def main():
     fall_voltage, rise_voltage = read_voltage()
     with open(OUTPUT_FILE_PATH, "w") as file:
         file.write(f"q q_err\n")
-        for i in range(0, 82):
+        for i in range(START_IDX, END_IDX):
             filepath = f"data/{i}.txt"
             q, q_err = find_charge(filepath, rise_voltage[i], VOLTAGE_ERR)
             file.write(f"{q} {q_err}\n")
