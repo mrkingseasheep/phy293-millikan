@@ -7,6 +7,11 @@ from scipy.optimize import curve_fit
 
 FPS = 10
 PX_TO_M = 540 * 1000  # 540 px / mm * 1000 mm / m
+A = 5 / 4
+lambda_path = 67.5e-9
+eta = 1.827e-5
+g = 9.81
+rho = 875.3
 
 
 def read_file(filename):
@@ -64,31 +69,36 @@ def find_lin_fit(points):
     return m, m_err, red_chi_squared, p_value
 
 
-def find_cunningham_adjusted_radius(v_d):
-    A = 5 / 4
-    lambda_path = 67.5e-9
-    eta = 1.827e-5
-    g = 9.81
-    rho = 875.3
-
+def find_cunningham_adjusted_radius(v_d, v_d_err):
     r = (
         -A * lambda_path
         + math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
     ) / 2
 
-    return r
+    r_err = abs(
+        (-9 * eta * v_d_err)
+        / (
+            2
+            * g
+            * rho
+            * math.sqrt((A * lambda_path) ** 2 + 18 * eta * abs(v_d) / g / rho)
+        )
+    )
+
+    return r, r_err
 
 
-def solve_line(filename):
+def find_charge(filename):
     rise_points, fall_points = read_file(filename)
     rise_v, rise_v_err, rise_redchi2, rise_p = find_lin_fit(rise_points)
     fall_v, fall_v_err, fall_redchi2, fall_p = find_lin_fit(fall_points)
 
-    print(find_cunningham_adjusted_radius(fall_v))
+    r, r_err = find_cunningham_adjusted_radius(fall_v, fall_v_err)
+    print((r, r_err))
 
 
 def main():
-    solve_line("data/0.txt")
+    find_charge("data/0.txt")
 
 
 if __name__ == "__main__":
